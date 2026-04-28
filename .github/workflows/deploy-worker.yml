@@ -1,0 +1,76 @@
+name: Deploy Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - 'app/services/**'
+      - 'app/lib/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build & Deploy Cloud Run Worker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT }}
+      REGION: ${{ vars.GCP_REGION }}
+      SERVICE: aifamily-worker
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/aifamily/worker
+      WORKER_SA: aifamily-worker@${{ vars.GCP_PROJECT }}.iam.gserviceaccount.com
+      TASKS_INVOKER_SA: aifamily-tasks-invoker@${{ vars.GCP_PROJECT }}.iam.gserviceaccount.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # OIDC → Workload Identity Federation per Security review HIGH #15.
+      # No long-lived SA keys in GitHub Actions.
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f # v2.1.7
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: aifamily-github-actions@${{ vars.GCP_PROJECT }}.iam.gserviceaccount.com
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a # v2.1.4
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_TAG="${{ env.IMAGE }}:${{ github.sha }}"
+          IMAGE_LATEST="${{ env.IMAGE }}:latest"
+          docker build -f worker/Dockerfile -t "$IMAGE_TAG" -t "$IMAGE_LATEST" .
+          docker push "$IMAGE_TAG"
+          docker push "$IMAGE_LATEST"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image="$IMAGE_TAG" \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --execution-environment=gen2 \
+            --service-account="${{ env.WORKER_SA }}" \
+            --ingress=internal \
+            --concurrency=1 \
+            --cpu=2 --memory=2Gi \
+            --timeout=900 \
+            --min-instances=1 --max-instances=10 \
+            --set-secrets=WORKER_SHARED_SECRET=worker-shared-secret:latest \
+            --quiet
+
+      - name: Grant Cloud Tasks invoker permission
+        run: |
+          gcloud run services add-iam-policy-binding ${{ env.SERVICE }} \
+            --member="serviceAccount:${{ env.TASKS_INVOKER_SA }}" \
+            --role="roles/run.invoker" \
+            --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }}
