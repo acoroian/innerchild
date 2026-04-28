@@ -1,7 +1,14 @@
+import type { CookieOptions } from "@supabase/ssr";
 import { createServerClient, parseCookieHeader, serializeCookieHeader } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { config } from "./config.server";
+
+interface CookieToSet {
+  name: string;
+  value: string;
+  options?: CookieOptions;
+}
 
 // Per-request server client that wires Supabase auth into the Remix
 // request/response cookie chain. Always pass `responseHeaders` back through
@@ -13,9 +20,9 @@ export function createServerSupabaseClient(request: Request, responseHeaders: He
         return parseCookieHeader(request.headers.get("Cookie") ?? "")
           .filter((c): c is { name: string; value: string } => typeof c.value === "string");
       },
-      setAll(cookies) {
+      setAll(cookies: CookieToSet[]) {
         for (const { name, value, options } of cookies) {
-          responseHeaders.append("Set-Cookie", serializeCookieHeader(name, value, options));
+          responseHeaders.append("Set-Cookie", serializeCookieHeader(name, value, options ?? {}));
         }
       },
     },

@@ -28,7 +28,7 @@ export default function Index() {
 
         <div className="mt-10 space-y-5 text-base leading-relaxed text-dusk-700">
           <p>
-            Inner-child work. Ancestor work. Letters you'd write if the person
+            Inner-child work. Ancestor work. Letters you&apos;d write if the person
             could read them.
           </p>
           <p>
