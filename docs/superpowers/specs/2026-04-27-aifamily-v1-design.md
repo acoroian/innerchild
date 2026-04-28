@@ -65,6 +65,11 @@ interface LLM {
   generateReply(input: { letter: string; subject: SubjectContext; ragChunks: string[] }): Promise<string>;
   generateAffirmation(input: { theme: string; subject: SubjectContext; recentContext: string }): Promise<string>;
 }
+
+interface PushNotifier {
+  notifyMobile(input: { userId: string; title: string; body: string; deepLink: string }): Promise<void>;
+  notifyEmail(input: { userId: string; subject: string; body: string; deepLink: string }): Promise<void>;
+}
 ```
 
 Each role gets one concrete vendor in V1, plus a `Mock` implementation used in tests and local dev so CI never hits a paid API.
@@ -123,6 +128,8 @@ Three async job types cover everything in V1.
 
 ### API surface
 
+All endpoints require a Supabase JWT bearer token (mobile and web alike). Cloud-Scheduler-only endpoints (`/api/affirmations/tick`) verify a Cloud Tasks OIDC signature instead.
+
 - `POST /api/subjects`
 - `POST /api/subjects/:id/photos`
 - `POST /api/subjects/:id/voice` (kicks off voice clone)
@@ -136,6 +143,12 @@ Three async job types cover everything in V1.
 ## 6. Data Model
 
 ```
+user_profiles                 -- 1:1 with auth.users
+  user_id (PK, FK auth.users), display_name,
+  mode ('reflective' | 'clinical')  default 'reflective',
+  locale  default 'en-US',
+  created_at, updated_at
+
 subjects
   id, user_id, kind ('inner_child' | 'ancestor'),
   display_name, age_in_photo, relationship,
@@ -153,8 +166,10 @@ consent_records
   signed_at, ip, user_agent
 
 subject_corpus_docs
-  id, subject_id, kind, original_filename,
-  storage_path, status ('pending'|'embedded'|'failed'), created_at
+  id, subject_id,
+  kind ('journal' | 'letter' | 'family_story' | 'other'),
+  original_filename, storage_path,
+  status ('pending'|'embedded'|'failed'), created_at
 
 subject_chunks
   id, subject_id, doc_id, chunk_index, content,
@@ -169,7 +184,12 @@ letters
 affirmation_schedules
   id, user_id, subject_id,
   cadence ('daily'|'3x_week'|'weekly'),
-  themes_json, time_window_local, active, created_at
+  -- themes_json shape: { themes: string[], custom_prompt?: string }
+  -- where each theme is one of:
+  -- 'encouragement' | 'before_bed' | 'when_anxious' | 'morning' | 'gratitude'
+  themes_json,
+  time_window_local,        -- e.g. { start: '08:00', end: '20:00', tz: 'America/New_York' }
+  active, created_at
 
 affirmations
   id, schedule_id, user_id, subject_id,
@@ -189,7 +209,7 @@ Every table is `user_id`-scoped via Supabase Row-Level Security (same pattern as
 
 **V1 reflective-tool baseline:**
 - "Not a therapist" disclaimer at sign-up and on every reply screen.
-- LLM system prompt includes a crisis-response clause: if the letter contains self-harm, suicidal ideation, or imminent-danger language, the reply leads with care + the 988 hotline (US) and a region-aware fallback line, *then* engages with the rest of the letter.
+- LLM system prompt includes a crisis-response clause: if the letter contains self-harm, suicidal ideation, or imminent-danger language, the reply leads with care + a hotline line, *then* engages with the rest of the letter. V1 ships with the US hotline (988) wired to `user_profiles.locale = 'en-US'`; the lookup is keyed by locale so additional countries can be added without code changes.
 - No emergency calling, no clinician routing in V1.
 - Voice cloning requires an explicit consent attestation per Subject, stored in `consent_records`. Attestation text covers two cases: "I am the owner of this voice" or "I am attesting that I have the right to use this voice for personal reflective purposes."
 - All photos, voice samples, and rendered videos are private by default. Sharing is signed-URL only and out of V1.
@@ -197,13 +217,13 @@ Every table is `user_id`-scoped via Supabase Row-Level Security (same pattern as
 
 **Designed-in for the therapy upgrade (do not build in V1):**
 - All vendors picked must have HIPAA BAAs available on a paid tier (Anthropic, ElevenLabs paid, Tavus enterprise, Supabase paid).
-- A `tenant.mode` column (`'reflective' | 'clinical'`) on user profile; flipping to `clinical` enables therapist-account roles, transcript export, stricter retention, and audit logging.
+- The `user_profiles.mode` column (`'reflective' | 'clinical'`) ships in V1 defaulting to `reflective`; flipping to `clinical` later enables therapist-account roles, transcript export, stricter retention, and audit logging.
 - All data already user-scoped via RLS, so multi-tenant therapist orgs slot in without re-platforming.
 
 ## 8. Testing
 
 - **Unit.** Each adapter has a `Mock` implementation that returns deterministic fixtures. Unit tests run against mocks; CI never hits a paid API.
-- **Integration.** A small `pnpm test:integration` suite hits real vendors with throwaway fixtures (one short photo, one short voice clip, one one-line letter) and verifies the round trip. Gated behind an env var.
+- **Integration.** A small `npm run test:integration` suite hits real vendors with throwaway fixtures (one short photo, one short voice clip, one one-line letter) and verifies the round trip. Gated behind an env var. (Package manager matches aerohub: npm.)
 - **E2E.** Playwright happy paths on Expo web — sign up, create Subject, write letter, see reply ready, schedule affirmation. Mobile-native E2E deferred to Phase 2; V1 ships with manual smoke tests on iOS and Android.
 - **Worker.** Each job type has a unit test that drives the job function with mock adapters and asserts DB transitions.
 - **No database mocking.** Integration tests run against a real local Supabase, same as aerohub's pattern.
