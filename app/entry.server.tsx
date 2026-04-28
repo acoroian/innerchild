@@ -24,6 +24,12 @@ export default function handleRequest(
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=()",
   );
+  responseHeaders.set(
+    "Strict-Transport-Security",
+    "max-age=63072000; includeSubDomains; preload",
+  );
+  responseHeaders.set("Cross-Origin-Opener-Policy", "same-origin");
+  responseHeaders.set("Cross-Origin-Resource-Policy", "same-origin");
 
   return isbot(request.headers.get("user-agent") || "")
     ? handleBotRequest(request, responseStatusCode, responseHeaders, remixContext)

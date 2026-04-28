@@ -1,0 +1,47 @@
+# Keep the Docker build context tight. The Dockerfile only COPYs:
+#   package.json package-lock.json* app/services app/lib worker
+# Everything below is excluded from the build context entirely.
+
+.env
+.env.*
+!.env.example
+
+.git
+.github
+.gitignore
+.husky
+.vscode
+.idea
+.DS_Store
+
+node_modules
+build
+public/build
+worker/dist
+coverage
+.cache
+
+docs
+todos
+README.md
+CLAUDE.md
+Makefile
+
+# Web-app surface that the worker doesn't need
+app/components
+app/routes
+app/hooks
+app/entry.client.tsx
+app/entry.server.tsx
+app/root.tsx
+app/tailwind.css
+public
+
+# Configs the worker doesn't read
+.eslintrc.cjs
+postcss.config.js
+tailwind.config.js
+vite.config.ts
+vitest.config.ts
+vitest.integration.config.ts
+supabase

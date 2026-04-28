@@ -39,8 +39,7 @@ app/
 ├── services/                   Isomorphic services (used by both Remix and worker)
 │   ├── avatar/                 AvatarEngine adapter
 │   ├── voice/                  VoiceEngine adapter
-│   ├── llm/                    LLM adapter (replies, affirmations, crisis classifier)
-│   └── notifier/               Email + push (V1.2)
+│   └── llm/                    LLM adapter (replies, crisis classifier)
 ├── tailwind.css
 ├── root.tsx
 ├── entry.client.tsx
@@ -73,7 +72,7 @@ docs/
 ### Server vs Client Boundary
 
 - Files ending in `.server.ts` are **never bundled to the client**. Use this suffix for: vendor adapters, secret-bearing helpers, anything that touches the service-role Supabase client.
-- ESLint rule blocks `app/services/{avatar,voice,llm,notifier}/**` imports from `app/components/**` and non-API `app/routes/**`. If you need an adapter from a route, put it behind an `api.*.ts` action.
+- ESLint rule blocks `app/services/{avatar,voice,llm}/**` imports from `app/components/**` and non-API `app/routes/**`. If you need an adapter from a route, put it behind an `api.*.ts` action.
 
 ### Vendor Adapters
 

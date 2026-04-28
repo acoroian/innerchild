@@ -32,12 +32,7 @@ export interface VoiceEngine {
     text: string;
     idempotencyKey: string;
   }): Promise<VoiceSynthResult>;
-
-  /**
-   * Hard-delete the cloned voice from the vendor. Returns explicit success vs
-   * quarantine semantics per Security review HIGH #7.
-   */
-  deleteVoice(input: { voiceId: string }): Promise<
-    { deleted: true } | { deleted: false; reason: string }
-  >;
 }
+
+// Hard-delete shape (Security review HIGH #7) lives in a follow-up — added in
+// Phase 5 when the actual cascade flow needs it.

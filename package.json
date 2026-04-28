@@ -27,9 +27,11 @@
     "@remix-run/serve": "^2.15.0",
     "@supabase/ssr": "^0.5.0",
     "@supabase/supabase-js": "^2.45.0",
+    "express": "^4.21.0",
     "isbot": "^5.1.17",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "tsx": "^4.19.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -44,10 +46,8 @@
     "eslint": "^8.57.1",
     "eslint-plugin-react": "^7.37.1",
     "eslint-plugin-react-hooks": "^4.6.2",
-    "express": "^4.21.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
-    "tsx": "^4.19.1",
     "typescript": "^5.6.2",
     "vite": "^5.4.8",
     "vite-tsconfig-paths": "^5.0.1",

@@ -1,5 +1,4 @@
 import type {
-  AffirmationResult,
   CrisisClassification,
   LLM,
   ReplyResult,
@@ -9,19 +8,17 @@ import type {
 interface ReplyInput {
   letter: string;
   subject: SubjectContext;
-  ragChunks: string[];
+  ragChunks: readonly string[];
   locale: string;
   crisis: CrisisClassification;
 }
 
-interface AffirmationInput {
-  theme: string;
-  subject: SubjectContext;
-  recentScripts: string[];
-}
-
 export class MockLLM implements LLM {
+  public classifyCalls: Array<{ text: string }> = [];
+  public replyCalls: ReplyInput[] = [];
+
   async classifyCrisis(input: { text: string }): Promise<CrisisClassification> {
+    this.classifyCalls.push(input);
     // Crude keyword stub so unit tests can exercise the crisis branch without
     // hitting the real classifier. Real implementation runs omni-moderation
     // first, then Haiku second-pass on borderline.
@@ -50,6 +47,7 @@ export class MockLLM implements LLM {
   }
 
   async generateReply(input: ReplyInput): Promise<ReplyResult> {
+    this.replyCalls.push(input);
     const hotlinePrefix =
       input.crisis.flag !== "none" && input.locale === "en-US"
         ? "I hear you, and I'm so glad you wrote. If you're in crisis, please call or text 988 — there's someone who wants to help. "
@@ -57,12 +55,6 @@ export class MockLLM implements LLM {
     return {
       script: `${hotlinePrefix}Hello. It's me, ${input.subject.displayName}. I read your letter, and I'm here.`,
       crisis: input.crisis,
-    };
-  }
-
-  async generateAffirmation(input: AffirmationInput): Promise<AffirmationResult> {
-    return {
-      script: `It's ${input.subject.displayName}. I'm proud of you today.`,
     };
   }
 }

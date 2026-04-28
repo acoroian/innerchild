@@ -3,7 +3,7 @@ import express, { type Request, type Response } from "express";
 import { requireCloudTasksAuth } from "./auth.js";
 
 const app = express();
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "1mb" }));
 
 // Health check — no auth, called by Cloud Run probes.
 app.get("/", (_req: Request, res: Response) => {

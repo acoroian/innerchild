@@ -1,12 +1,14 @@
 // LLM adapter contract.
 //
-// Three responsibilities:
+// Two responsibilities:
 //   - generateReply: hero-feature script generation, with crisis-aware framing.
-//   - generateAffirmation: short scripted clip for Phase 5 affirmations.
 //   - classifyCrisis: layered detection. The implementation runs OpenAI
 //     omni-moderation as a cheap pre-pass; on borderline scores it falls back
 //     to a Haiku-class classifier prompt for passive ideation. Returns one of
 //     three flags so the reply path can lead with hotline + care when needed.
+//
+// Affirmation generation is a Phase-5 (deferred) feature — the contract for it
+// will be designed alongside the actual delivery pipeline.
 //
 // Security review CRITICAL #3: prompt injection defense lives in the
 // concrete implementations — user content (letter, About form, RAG chunks)
@@ -41,25 +43,15 @@ export interface ReplyResult {
   crisis: CrisisClassification;
 }
 
-export interface AffirmationResult {
-  script: string;
-}
-
 export interface LLM {
   classifyCrisis(input: { text: string }): Promise<CrisisClassification>;
 
   generateReply(input: {
     letter: string;
     subject: SubjectContext;
-    ragChunks: string[];
+    ragChunks: readonly string[];
     locale: string;
     /** Pre-computed crisis flag — when non-`none`, prompt leads with hotline + care. */
     crisis: CrisisClassification;
   }): Promise<ReplyResult>;
-
-  generateAffirmation(input: {
-    theme: string;
-    subject: SubjectContext;
-    recentScripts: string[];
-  }): Promise<AffirmationResult>;
 }

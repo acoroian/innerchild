@@ -15,6 +15,12 @@ const ConfigSchema = z.object({
   CLOUD_TASKS_WORKER_URL: z.string().url().optional(),
   CLOUD_TASKS_SA_EMAIL: z.string().email().optional(),
   WORKER_SHARED_SECRET: z.string().optional(),
+  // Explicit opt-in for the local-dev worker auth bypass. Production deploys
+  // must NOT set this; absence is the secure default. (Security review P1 #3.)
+  WORKER_AUTH_DISABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
 
   // ── Cloud Scheduler defense-in-depth (Security review CRITICAL #1) ────────
   SCHEDULER_SHARED_SECRET: z.string().optional(),

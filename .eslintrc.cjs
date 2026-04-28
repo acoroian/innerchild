@@ -23,10 +23,11 @@ module.exports = {
   },
   overrides: [
     {
-      // Architecture review P0: vendor adapters live in *.server.ts files
-      // and must never be imported from client-routable code paths.
+      // Architecture review P0: vendor adapters must never be imported from
+      // client-routable code paths. Components never import vendors regardless
+      // of `.server.ts` suffix; API routes are the only allowed call site.
       files: ["app/components/**/*.{ts,tsx}", "app/routes/**/*.{ts,tsx}"],
-      excludedFiles: ["**/*.server.{ts,tsx}", "app/routes/api.*.ts"],
+      excludedFiles: ["app/routes/api.*.{ts,tsx}"],
       rules: {
         "no-restricted-imports": [
           "error",
@@ -37,7 +38,6 @@ module.exports = {
                   "**/services/avatar/**",
                   "**/services/voice/**",
                   "**/services/llm/**",
-                  "**/services/notifier/**",
                 ],
                 message:
                   "Vendor adapters must not be imported from components or non-API routes. Use API actions or .server.ts re-exports.",

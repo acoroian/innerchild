@@ -22,6 +22,8 @@ export type RenderStatus =
   | { status: "ready"; videoUrl: string; durationMs: number }
   | { status: "failed"; reason: string };
 
+export type RenderEvent = RenderStatus & { providerJobId: string };
+
 export interface AvatarEngine {
   /**
    * Eager enrollment. Fired the first time a Subject gets a primary photo so
@@ -49,15 +51,8 @@ export interface AvatarEngine {
   handleWebhook(input: {
     payload: unknown;
     signature: string | null;
-  }): Promise<{ providerJobId: string } & RenderStatus>;
-
-  /**
-   * Hard-delete the vendor-side avatar identity. Some vendors (D-ID) cannot
-   * actually erase training data; in that case return `{ deleted: false, reason }`
-   * and the caller will record a quarantine entry rather than reporting success.
-   * Security review HIGH #7.
-   */
-  deleteAvatar(input: { avatarId: string }): Promise<
-    { deleted: true } | { deleted: false; reason: string }
-  >;
+  }): Promise<RenderEvent>;
 }
+
+// Hard-delete shape (Security review HIGH #7) lives in a follow-up — added in
+// Phase 5 when the actual cascade flow needs it.
