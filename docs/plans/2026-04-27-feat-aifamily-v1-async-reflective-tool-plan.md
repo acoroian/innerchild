@@ -3,10 +3,107 @@ title: "feat: aiFamily V1 — async reflective tool (letter→reply + scheduled 
 type: feat
 status: active
 date: 2026-04-27
+deepened: 2026-04-27
 origin: docs/superpowers/specs/2026-04-27-aifamily-v1-design.md
 ---
 
 # feat: aiFamily V1 — Async Reflective Tool
+
+## Enhancement Summary
+
+**Deepened on:** 2026-04-27
+**Reviewers:** security-sentinel, architecture-strategist, performance-oracle, code-simplicity-reviewer (4 parallel agents)
+
+### Recommended scope reduction (Simplicity review)
+
+The original 10-phase plan is sized for a multi-tenant SaaS at scale. For an unvalidated product this is over-engineered. **Recommended V1 cut:**
+
+- **Defer Phase 5 (Scheduled Affirmations)** to V1.1 — retention bet on users you don't have. Hero feature is letter→reply.
+- **Defer Phase 6 (Mobile)** to V1.2 — Web only first. Hero feature works on a laptop.
+- **Defer Phase 9 (Stripe)** to V1.3 — invite-only beta caps cost via the invite list.
+- **Insert new Phase 0.5: Vendor Bake-off** at week 1. Don't commit 7 phases to `Mock*` adapters before learning what real vendors can/can't do with trauma-adjacent content.
+- **Replace Pulumi with a `gcloud` Makefile** for V1; one Supabase project, not staging+prod.
+- **Trim test scope:** keep RLS integration tests + crisis-classifier tests at high coverage, smoke everything else for V1.
+
+**Result:** ~3 weeks to invite-only beta vs ~7–8 weeks to full SaaS. Original 10-phase plan retained below as the V1.x roadmap; the slimmed plan is captured under "Slim V1 scope" below.
+
+### Critical findings (must address regardless of scope)
+
+| # | Source | Severity | Finding | Plan location |
+|---|---|---|---|---|
+| 1 | Security | CRITICAL | Cloud Scheduler endpoint OIDC verification on Vercel must be specified, not handwaved | New `app/lib/oidc.server.ts`; Phase 5 + Phase 0 secrets |
+| 2 | Security | CRITICAL | pgvector retrieval needs explicit `subject_id = $1` filter + ownership round-trip; RLS-via-join is not enough under ivfflat | Phase 3 `app/services/retrieval.ts` |
+| 3 | Security | CRITICAL | Reply LLM must defend against prompt injection: XML-delimited inputs, output classifier post-pass, denylist on harmful instructions in generated script | Phase 4 `app/services/llm/prompts/reply.ts` + Phase 7 hardening |
+| 4 | Security | CRITICAL | Voice clone misuse: watermark all generated audio + video, voice-match challenge for "this is my own voice," public-figure denylist, output framing check (second-person only) | Phase 2, Phase 4, Phase 7 |
+| 5 | Architecture | P0 | `AvatarEngine` must be split into `startRender / pollRender / handleWebhook` — real vendors are async, returning a job id then a webhook | Phase 4 + 8 |
+| 6 | Architecture | P0 | Cloud Scheduler must hit the **worker**, not Remix — Vercel function timeouts and lack of internal-ingress make `/api/affirmations/tick` the wrong host | Phase 5 (when un-deferred) |
+| 7 | Architecture | P0 | Worker mid-job idempotency: persist `reply_audio_path` after synth and check it before re-synthing; deterministic Storage paths `{kind}/{rowId}/v{attempt}.{ext}` | Phase 4 |
+| 8 | Architecture | P0 | Service boundary: every adapter file uses `.server.ts` suffix + ESLint `no-restricted-imports` rule blocks adapter use from `app/components/**` and `app/routes/**` | Phase 0 |
+| 9 | Performance | HIGH | **Per-user vendor cost is ~$6.25/mo** at midpoint usage — plan's `<$0.50` free-tier and `<$4` paid-tier targets are off by ~12×. Affirmation library + audio reuse is the only realistic fix. Without it, paid tier needs to price at $25+. | Phase 5 + Phase 9 |
+| 10 | Performance | HIGH | Pipeline parallelization: `Promise.all(crisisCheck, retrieveChunks)`; stream LLM output → ElevenLabs WebSocket synth on first sentence boundary; saves 20–40s p50 | Phase 4 |
+| 11 | Security | HIGH | `consent_records` must be **append-only** with `prev_hash` chain — Postgres trigger blocks UPDATE/DELETE; revocation is a new row | Phase 2 |
+| 12 | Security | HIGH | Vendor cost ceiling at the user level (not just per-resource). Daily $ cap + Sentry alert on 5× rolling-average spike. Apply quota to `affirmations/:id/react?reaction=another` (currently ungated) | Phase 7 + 9 |
+| 13 | Security | HIGH | GDPR/CCPA deletion: every adapter implements `delete()` returning `{deleted:true} | {deleted:false, reason}`. Vendors that can't hard-delete (D-ID retains) require explicit "quarantined" semantics + user-facing disclosure of what's hard-deleted vs retained | Phase 7 |
+| 14 | Security | HIGH | Stripe webhook needs `stripe-signature` verification + `stripe_webhook_events` dedup table | Phase 9 |
+| 15 | Security | HIGH | All secrets in **GCP Secret Manager**, not GitHub Actions secrets. GitHub uses **OIDC → GCP Workload Identity Federation** (no long-lived SA keys). Pin third-party Actions to commit SHAs. | Phase 0 |
+| 16 | Performance | MED | Anthropic prompt caching pinned across the reply path (system prompt + crisis clause + Subject context block) saves ~60% input cost | Phase 4 |
+| 17 | Performance | MED | Cloud Run `--min-instances=1` in prod ($30/mo) eliminates cold-start tax on render path | Phase 0 |
+| 18 | Performance | MED | Replace 3s polling with Supabase Realtime on `letters` row UPDATE — drops API QPS 90%, drops perceived ready latency to <500ms | Phase 4 |
+| 19 | Architecture | P1 | Crisis classifier circuit breaker: on omni-moderation failure, fall back to keyword pre-filter + force `borderline` flag + hotline-leading prompt | Phase 4 + 7 |
+| 20 | Architecture | P1 | State-machine ownership: explicit `(from_state, to_state, allowed_actor, allowed_via)` table; enforce via Postgres CHECK or `_assert_transition()` plpgsql | Phase 4 + 5 |
+| 21 | Performance | LOW | SLI/SLO catalog (letter_render p95 < 180s, vendor_error_rate < 2%, queue_depth < 200, etc.) wired to Sentry + GCP alerts | Phase 10 |
+| 22 | Security | LOW | Mobile deep-link must be Universal Links (iOS) + App Links (Android), not custom `aifamily://` scheme — custom schemes are hijackable on Android | Phase 6 |
+
+### Slim V1 scope (recommended for first ship)
+
+**~3 weeks total.** Web-only invite-only beta with real vendors end-to-end.
+
+1. **Phase 0 — Repo + infra (~2 days)** — `gcloud` Makefile, single Supabase, GH Actions CI, Cloud Run worker stub. **Drop Pulumi for V1.** Secrets in GCP Secret Manager from day one. ESLint boundary rule + `.server.ts` suffix in place.
+2. **Phase 0.5 — Vendor bake-off (~2 days)** — One photo, one voice sample, one letter through Tavus + HeyGen and Sonnet 4.6 + GPT-5. Pick winners. Score on warmth, identity stability, lip-sync, BAA story, content-policy fit on a trauma-adjacent script. Move on with one real vendor per role.
+3. **Phase 1 — Auth + Subject + photo (~3 days)** — Supabase magic link, Subject CRUD, photo upload via signed URL. RLS integration tests.
+4. **Phase 2 — Voice clone + strengthened consent (~2 days)** — Append-only `consent_records` with hash chain, three-option attestation (own / executor / live-with-consent), voice-match challenge for option 1, public-figure denylist gate.
+5. **Phase 3 — RAG corpus (~2 days)** — pgvector with explicit `subject_id` filter + ownership round-trip; partial index on `deleted_at IS NULL`.
+6. **Phase 4 — Letter→Reply with real vendors (~4 days)** — async `start/poll/handleWebhook` adapter shape, mid-job idempotency, prompt-injection-hardened reply prompt, output classifier, watermarking, parallel crisis+RAG, prompt caching pinned.
+7. **Phase 5-slim — Crisis hardening (~2 days)** — Layered detection with circuit breaker, hotline-leading reply, hard-delete cascade with vendor `delete()` returning explicit `{deleted/quarantined}` status, per-user daily cost ceiling.
+8. **Phase 6-slim — Beta launch (~1 day)** — Invite 10 users, basic privacy + terms + voice-consent pages reviewed by counsel, Sentry, status page deferred.
+
+**Deferred to V1.1+:**
+- Affirmations (Phase 5 of original plan) — re-add only after letter→reply retention validated.
+- Mobile (Phase 6) — re-add when web shows uncanny-vs-magic ratio is right.
+- Stripe + paid tier rails (Phase 9) — re-add at 50 weekly-active users.
+- Pulumi (replace Makefile with Pulumi when ops surface justifies it).
+- Admin safety queue UI — `SELECT` from Postgres with a CLI for V1.
+
+### Cost & latency targets (revised)
+
+- **Per-user vendor cost:** under invite-only beta, vendor spend caps via the 10-user invite list, not via pricing model. Original `<$0.50` free / `<$4` paid targets reframed: per-letter cost target is **$0.20–$0.55** (verified from research), per-affirmation $0.10–$0.21. Paid tier price needs to be **$25–$50/mo**, not $9.99/$19.99, to break even at usage caps. Re-validate at V1.1.
+- **Letter latency:** p50 < 60s (was 90s), p95 < 120s (was 180s) — achievable with parallel crisis+RAG, streaming LLM→TTS, eager avatar enrollment, `min-instances=1`.
+- **Phase 2 (live conversation) economics:** at $1–3/min Tavus, must price ≥ $50/mo or meter above a 60-min/mo bundle. Original $9.99/$19.99 free/paid would lose ~$13K/mo per 1K Phase 2 users.
+
+### Files / env vars / behaviors named by reviewers
+
+- `app/lib/oidc.server.ts` — Cloud Scheduler OIDC verification
+- `app/lib/csrf.server.ts` — CSRF token for mutating actions
+- `app/lib/quota.server.ts` — vendor cost + per-user daily ceilings
+- `app/config.server.ts` — Zod-validated env vars, single boot-time validation point
+- `app/services/llm/prompts/reply.ts` — XML-delimited inputs, output classifier hooks
+- `app/services/avatar/{provider}.ts` — `startRender / pollRender / handleWebhook` shape
+- `app/services/*/quarantine.ts` — vendor-side "can't hard delete" semantics
+- Adapter files use `.server.ts` suffix; ESLint `no-restricted-imports` blocks from `app/components/**` and `app/routes/**`
+- Storage paths: `{kind}/{rowId}/v{attempt}.{ext}` (deterministic, attempt-versioned)
+- `consent_records`: INSERT-only via Postgres trigger; `prev_hash` chain; mirror to GCS object-lock retention bucket
+- `stripe_webhook_events` dedup table; `admin_audit_log`; `data_retention_records`
+- All secrets in GCP Secret Manager; GitHub OIDC → Workload Identity Federation; pin third-party Actions to commit SHAs
+- New env vars: `SCHEDULER_SHARED_SECRET`, `STRIPE_WEBHOOK_SECRET`
+
+### What was NOT changed
+
+- Original 10-phase plan is preserved below in full as the V1.x reference roadmap.
+- Vendor research findings (drop Grok Imagine + Sora 2; bake off Tavus/HeyGen/D-ID; reply LLM not auto-Sonnet) stand.
+- Architecture choices (Expo, Remix, Cloud Run + Cloud Tasks, Supabase, pgvector) stand.
+- Consent / safety / therapy-upgrade-path posture stands.
+
+---
 
 ## Overview
 
