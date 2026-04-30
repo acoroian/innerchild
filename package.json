@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "worker:dev": "tsx watch worker/src/index.ts",
+    "worker:dev": "node --env-file=.env --import tsx/esm --watch worker/src/index.ts",
     "worker:build": "tsc -p worker/tsconfig.json",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset"
