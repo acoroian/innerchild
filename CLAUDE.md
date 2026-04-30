@@ -1,8 +1,8 @@
-# CLAUDE.md — aiFamily Project Documentation
+# CLAUDE.md — mosaicrise Project Documentation
 
 ## Project Overview
 
-aiFamily is a multi-tenant web (and later mobile) product for inner-child and ancestor reflective work. A user uploads a photo and (optionally) a voice sample of a meaningful subject — typically a younger version of themselves or a grandparent — writes letters to that subject, and receives back lip-synced talking-head video replies in the subject's cloned voice. A second mode delivers short scheduled affirmation videos at intervals.
+mosaicrise is a multi-tenant web (and later mobile) product for inner-child and ancestor reflective work. A user uploads a photo and (optionally) a voice sample of a meaningful subject — typically a younger version of themselves or a grandparent — writes letters to that subject, and receives back lip-synced talking-head video replies in the subject's cloned voice. A second mode delivers short scheduled affirmation videos at intervals.
 
 **V1 is positioned as a reflective tool, not therapy.** The architecture is intentionally designed to flip later into a clinical / therapist-companion product without re-platforming.
 

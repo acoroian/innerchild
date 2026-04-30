@@ -1,8 +1,8 @@
-# aiFamily
+# mosaicrise
 
 > A reflective space where the people who shaped you — your younger self, your grandparents — can write back.
 
-aiFamily is a multi-tenant web (and later mobile) product for inner-child and ancestor reflective work. Users upload a photo and (optionally) a voice sample of a meaningful subject, write letters to that subject, and receive back lip-synced talking-head video replies in the subject's cloned voice. A second mode delivers short scheduled affirmation videos at intervals.
+mosaicrise is a multi-tenant web (and later mobile) product for inner-child and ancestor reflective work. Users upload a photo and (optionally) a voice sample of a meaningful subject, write letters to that subject, and receive back lip-synced talking-head video replies in the subject's cloned voice. A second mode delivers short scheduled affirmation videos at intervals.
 
 V1 is positioned as a **reflective tool, not therapy**, with the architecture intentionally designed so it can later be flipped into a clinical / therapist-companion product without re-platforming.
 

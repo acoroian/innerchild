@@ -7,7 +7,7 @@ app.use(express.json({ limit: "1mb" }));
 
 // Health check — no auth, called by Cloud Run probes.
 app.get("/", (_req: Request, res: Response) => {
-  res.status(200).json({ status: "ok", service: "aifamily-worker" });
+  res.status(200).json({ status: "ok", service: "mosaicrise-worker" });
 });
 
 // Architecture review: route per job, not a single switch. One handler per
@@ -48,5 +48,5 @@ app.post("/jobs/embed-subject-corpus", requireCloudTasksAuth, async (req, res) =
 
 const port = Number(process.env.PORT ?? 8080);
 app.listen(port, () => {
-  console.log(`aifamily-worker listening on :${port}`);
+  console.log(`mosaicrise-worker listening on :${port}`);
 });

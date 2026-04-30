@@ -1,4 +1,4 @@
-# aiFamily — V1 infra commands.
+# mosaicrise — V1 infra commands.
 #
 # Per the deepened plan (simplicity review): we use a thin gcloud Makefile
 # instead of Pulumi for V1. Once the ops surface justifies it, this gets
@@ -10,7 +10,7 @@
 
 PROJECT ?= $(GCP_PROJECT)
 REGION  ?= $(GCP_REGION)
-SERVICE ?= aifamily-worker
+SERVICE ?= mosaicrise-worker
 IMAGE   ?= $(REGION)-docker.pkg.dev/$(PROJECT)/$(ARTIFACT_REPO)/worker
 
 .PHONY: help
@@ -31,18 +31,18 @@ gcp-bootstrap: ## One-time GCP project + APIs + service accounts setup
 	  iamcredentials.googleapis.com
 	gcloud artifacts repositories create $(ARTIFACT_REPO) \
 	  --repository-format=docker --location=$(REGION) || true
-	gcloud iam service-accounts create aifamily-worker \
-	  --display-name="aiFamily Cloud Run Worker" || true
-	gcloud iam service-accounts create aifamily-tasks-invoker \
-	  --display-name="aiFamily Cloud Tasks Invoker" || true
-	gcloud iam service-accounts create aifamily-scheduler-invoker \
-	  --display-name="aiFamily Cloud Scheduler Invoker" || true
-	gcloud iam service-accounts create aifamily-github-actions \
-	  --display-name="aiFamily GitHub Actions CI/CD" || true
+	gcloud iam service-accounts create mosaicrise-worker \
+	  --display-name="mosaicrise Cloud Run Worker" || true
+	gcloud iam service-accounts create mosaicrise-tasks-invoker \
+	  --display-name="mosaicrise Cloud Tasks Invoker" || true
+	gcloud iam service-accounts create mosaicrise-scheduler-invoker \
+	  --display-name="mosaicrise Cloud Scheduler Invoker" || true
+	gcloud iam service-accounts create mosaicrise-github-actions \
+	  --display-name="mosaicrise GitHub Actions CI/CD" || true
 
 .PHONY: tasks-queue
 tasks-queue: ## Create the Cloud Tasks queue with retry policy
-	gcloud tasks queues create aifamily-jobs --location=$(REGION) \
+	gcloud tasks queues create mosaicrise-jobs --location=$(REGION) \
 	  --max-attempts=5 \
 	  --max-retry-duration=3600s \
 	  --min-backoff=30s \
@@ -50,7 +50,7 @@ tasks-queue: ## Create the Cloud Tasks queue with retry policy
 	  --max-doublings=3 \
 	  --max-concurrent-dispatches=20 \
 	  --max-dispatches-per-second=5 || \
-	gcloud tasks queues update aifamily-jobs --location=$(REGION) \
+	gcloud tasks queues update mosaicrise-jobs --location=$(REGION) \
 	  --max-attempts=5 --max-retry-duration=3600s \
 	  --min-backoff=30s --max-backoff=300s --max-doublings=3 \
 	  --max-concurrent-dispatches=20 --max-dispatches-per-second=5

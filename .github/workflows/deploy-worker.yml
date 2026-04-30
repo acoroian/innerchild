@@ -21,10 +21,10 @@ jobs:
     env:
       PROJECT_ID: ${{ vars.GCP_PROJECT }}
       REGION: ${{ vars.GCP_REGION }}
-      SERVICE: aifamily-worker
-      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/aifamily/worker
-      WORKER_SA: aifamily-worker@${{ vars.GCP_PROJECT }}.iam.gserviceaccount.com
-      TASKS_INVOKER_SA: aifamily-tasks-invoker@${{ vars.GCP_PROJECT }}.iam.gserviceaccount.com
+      SERVICE: mosaicrise-worker
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/mosaicrise/worker
+      WORKER_SA: mosaicrise-worker@${{ vars.GCP_PROJECT }}.iam.gserviceaccount.com
+      TASKS_INVOKER_SA: mosaicrise-tasks-invoker@${{ vars.GCP_PROJECT }}.iam.gserviceaccount.com
 
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
         uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f # v2.1.7
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: aifamily-github-actions@${{ vars.GCP_PROJECT }}.iam.gserviceaccount.com
+          service_account: mosaicrise-github-actions@${{ vars.GCP_PROJECT }}.iam.gserviceaccount.com
 
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a # v2.1.4

@@ -1,7 +1,7 @@
 import type { MetaFunction } from "@remix-run/node";
 
 export const meta: MetaFunction = () => [
-  { title: "aiFamily — write to the people who shaped you" },
+  { title: "mosaicrise — write to the people who shaped you" },
   {
     name: "description",
     content:
@@ -14,7 +14,7 @@ export default function Index() {
     <main className="min-h-screen px-6 py-16 sm:px-8 sm:py-24">
       <div className="mx-auto max-w-2xl">
         <p className="text-sm uppercase tracking-[0.18em] text-dusk-500">
-          aiFamily
+          mosaicrise
         </p>
 
         <h1 className="mt-6 font-serif text-4xl leading-[1.15] text-dusk-900 sm:text-5xl">
@@ -32,7 +32,7 @@ export default function Index() {
             could read them.
           </p>
           <p>
-            aiFamily is a private place to write those letters and receive a
+            mosaicrise is a private place to write those letters and receive a
             short video reply — in the voice and on the face of the person you
             wrote to. Pair it with gentle scheduled reminders from them, in
             their own voice.
@@ -45,9 +45,8 @@ export default function Index() {
 
         <div className="mt-12 flex flex-col gap-3 sm:flex-row">
           <a
-            href="/signup"
+            href="mailto:hello@mosaicrise.com?subject=mosaicrise%20invite%20request"
             className="inline-flex items-center justify-center rounded-md bg-dusk-700 px-6 py-3 text-sm font-medium text-sand-50 transition hover:bg-dusk-900 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:ring-offset-2 focus:ring-offset-sand-50"
-            aria-disabled
           >
             Request an invite
           </a>
