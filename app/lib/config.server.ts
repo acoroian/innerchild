@@ -37,6 +37,10 @@ const ConfigSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   ELEVENLABS_API_KEY: z.string().optional(),
+  // Free-tier ElevenLabs accounts can't clone voices. When set, the adapter
+  // returns this preset voice id from cloneFromSample instead of failing.
+  // Leave unset on Starter+ tiers to use real Instant Voice Cloning.
+  ELEVENLABS_PRESET_VOICE_ID: z.string().optional(),
   CARTESIA_API_KEY: z.string().optional(),
   TAVUS_API_KEY: z.string().optional(),
   HEYGEN_API_KEY: z.string().optional(),

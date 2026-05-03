@@ -10,7 +10,10 @@ export function getVoiceEngine(): VoiceEngine {
   if (_instance) return _instance;
   switch (config.VOICE_ENGINE) {
     case "elevenlabs":
-      _instance = new ElevenLabsVoiceEngine(config.ELEVENLABS_API_KEY ?? "");
+      _instance = new ElevenLabsVoiceEngine(
+        config.ELEVENLABS_API_KEY ?? "",
+        config.ELEVENLABS_PRESET_VOICE_ID,
+      );
       break;
     case "cartesia":
       throw new Error("Cartesia adapter not yet implemented; set VOICE_ENGINE=mock or elevenlabs");

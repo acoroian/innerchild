@@ -17,7 +17,16 @@ import type {
 const BASE_URL = "https://api.elevenlabs.io";
 
 export class ElevenLabsVoiceEngine implements VoiceEngine {
-  constructor(private readonly apiKey: string) {
+  constructor(
+    private readonly apiKey: string,
+    /**
+     * Optional: when set, cloneFromSample short-circuits and returns this
+     * preset voice ID instead of attempting a real clone. Use this on the
+     * ElevenLabs Free tier (which doesn't support /v1/voices/add). When the
+     * account upgrades to Starter+, leave this unset and real cloning kicks in.
+     */
+    private readonly presetVoiceId?: string,
+  ) {
     if (!apiKey) {
       throw new Error("ElevenLabsVoiceEngine requires ELEVENLABS_API_KEY");
     }
@@ -27,6 +36,13 @@ export class ElevenLabsVoiceEngine implements VoiceEngine {
     audioUrl: string;
     consent: ConsentRecordRef;
   }): Promise<VoiceCloneResult> {
+    if (this.presetVoiceId) {
+      // Free-tier fallback: return the preset voice ID. The audio sample is
+      // still uploaded to Storage (in the calling job) so we have it on file
+      // for when the account upgrades and can re-run the clone.
+      return { voiceId: this.presetVoiceId };
+    }
+
     const audioRes = await fetch(input.audioUrl);
     if (!audioRes.ok) {
       throw new Error(`Failed to fetch sample audio: ${audioRes.status}`);
