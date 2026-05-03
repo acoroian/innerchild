@@ -1,6 +1,7 @@
 import express, { type Request, type Response } from "express";
 
 import { cloneVoiceJob } from "../../app/services/jobs/clone-voice.server.js";
+import { embedCorpusJob } from "../../app/services/jobs/embed-corpus.server.js";
 
 import { requireCloudTasksAuth } from "./auth.js";
 
@@ -54,10 +55,19 @@ app.post("/jobs/enroll-avatar", requireCloudTasksAuth, async (req, res) => {
 });
 
 app.post("/jobs/embed-subject-corpus", requireCloudTasksAuth, async (req, res) => {
-  // TODO(Phase 3): chunk doc, embed via OpenAI text-embedding-3-small, upsert
-  // into subject_chunks (pgvector). RLS via parent ownership.
-  console.log("[embed_subject_corpus] received:", req.body);
-  res.status(200).json({ status: "stub", todo: "Phase 3" });
+  const payload = req.body as { doc_id?: string };
+  if (!payload?.doc_id) {
+    return res.status(400).json({ error: "doc_id required" });
+  }
+  try {
+    const result = await embedCorpusJob({ doc_id: payload.doc_id });
+    if (result.status === "error") return res.status(500).json(result);
+    return res.status(200).json(result);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.error("[embed_subject_corpus] uncaught:", reason);
+    return res.status(500).json({ status: "error", reason });
+  }
 });
 
 const port = Number(process.env.PORT ?? 8080);

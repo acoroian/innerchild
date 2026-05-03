@@ -38,6 +38,7 @@ module.exports = {
                   "**/services/avatar/**",
                   "**/services/voice/**",
                   "**/services/llm/**",
+                  "**/services/embedding/**",
                 ],
                 message:
                   "Vendor adapters must not be imported from components or non-API routes. Use API actions or .server.ts re-exports.",

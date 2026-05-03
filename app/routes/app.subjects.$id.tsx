@@ -26,6 +26,12 @@ import {
   type SubjectVoiceSample,
 } from "~/lib/voice";
 import { getLatestVoiceSample } from "~/lib/voice.server";
+import {
+  CORPUS_INLINE_MAX_CHARS,
+  isAllowedCorpusMime,
+  type CorpusIngestStatus,
+  type SubjectCorpusDoc,
+} from "~/lib/corpus";
 
 export const meta: MetaFunction = () => [{ title: "Subject — mosaicrise" }];
 
@@ -41,10 +47,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const subject = await getSubject(supabase, id);
   if (!subject) throw redirect("/app", { headers: responseHeaders });
 
-  const [photos, voiceSample] = await Promise.all([
+  const [photos, voiceSample, corpusDocsResp] = await Promise.all([
     listSubjectPhotos(supabase, id),
     getLatestVoiceSample(supabase, id),
+    supabase
+      .from("subject_corpus_docs")
+      .select("*")
+      .eq("subject_id", id)
+      .order("created_at", { ascending: false }),
   ]);
+  const corpusDocs = (corpusDocsResp.data ?? []) as SubjectCorpusDoc[];
   const photoViews: PhotoView[] = await Promise.all(
     photos.map(async (p) => {
       const { data } = await supabase.storage
@@ -54,7 +66,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }),
   );
 
-  return json({ subject, photos: photoViews, voiceSample }, { headers: responseHeaders });
+  return json(
+    { subject, photos: photoViews, voiceSample, corpusDocs },
+    { headers: responseHeaders },
+  );
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -77,7 +92,7 @@ const KIND_LABEL = {
 } as const;
 
 export default function SubjectDetail() {
-  const { subject, photos, voiceSample } = useLoaderData<typeof loader>();
+  const { subject, photos, voiceSample, corpusDocs } = useLoaderData<typeof loader>();
 
   return (
     <div>
@@ -129,6 +144,14 @@ export default function SubjectDetail() {
       </section>
 
       <section className="mt-12">
+        <h2 className="font-serif text-xl text-dusk-900">Journals & stories</h2>
+        <p className="mt-1 text-sm text-dusk-500">
+          Upload or paste documents the reply can draw on — letters, journals, family stories.
+        </p>
+        <CorpusPanel subjectId={subject.id} docs={corpusDocs} />
+      </section>
+
+      <section className="mt-12">
         <h2 className="font-serif text-xl text-dusk-900">About</h2>
         <dl className="mt-4 grid grid-cols-1 gap-3 text-sm">
           <Field label="Tone" value={subject.tone ?? "—"} />
@@ -144,7 +167,7 @@ export default function SubjectDetail() {
       <section className="mt-12 rounded-lg border border-dusk-700/15 bg-white p-5 text-sm text-dusk-700">
         <p className="font-serif text-base text-dusk-900">Coming next</p>
         <p className="mt-1 text-dusk-500">
-          Journal upload and the letter → video reply will appear here as later phases ship.
+          The letter → video reply will appear here in the next phase.
         </p>
       </section>
     </div>
@@ -633,5 +656,266 @@ function RevokeButton({ subjectId }: { subjectId: string }) {
     >
       {busy ? "Revoking…" : "Revoke"}
     </button>
+  );
+}
+
+const STATUS_LABEL: Record<CorpusIngestStatus, string> = {
+  pending: "Queued…",
+  embedding: "Embedding…",
+  ready: "Ready",
+  failed: "Failed",
+};
+
+function CorpusPanel({ subjectId, docs }: { subjectId: string; docs: SubjectCorpusDoc[] }) {
+  const revalidator = useRevalidator();
+  const anyInflight = docs.some((d) => d.ingest_status === "pending" || d.ingest_status === "embedding");
+
+  useEffect(() => {
+    if (!anyInflight) return;
+    const i = setInterval(() => revalidator.revalidate(), 3000);
+    return () => clearInterval(i);
+  }, [anyInflight, revalidator]);
+
+  return (
+    <div className="mt-4 space-y-4">
+      {docs.length === 0 ? (
+        <div className="rounded-md border border-dashed border-dusk-700/20 p-6 text-center text-sm text-dusk-500">
+          No documents yet.
+        </div>
+      ) : (
+        <ul className="divide-y divide-dusk-700/10 rounded-md border border-dusk-700/15 bg-white">
+          {docs.map((d) => (
+            <li key={d.id} className="flex items-center justify-between gap-4 px-4 py-3">
+              <div>
+                <p className="font-medium text-dusk-900">{d.title}</p>
+                <p className="text-xs text-dusk-500">
+                  {d.source_kind} · {STATUS_LABEL[d.ingest_status]}
+                  {d.ingest_status === "ready" ? ` · ${d.chunk_count} chunks` : ""}
+                  {d.ingest_status === "failed" && d.ingest_error ? ` · ${d.ingest_error}` : ""}
+                </p>
+              </div>
+              <DeleteDocButton subjectId={subjectId} docId={d.id} />
+            </li>
+          ))}
+        </ul>
+      )}
+      <CorpusUploader subjectId={subjectId} />
+    </div>
+  );
+}
+
+function DeleteDocButton({ subjectId, docId }: { subjectId: string; docId: string }) {
+  const revalidator = useRevalidator();
+  const [busy, setBusy] = useState(false);
+
+  async function handleClick() {
+    if (!window.confirm("Delete this document? Its chunks will be removed from retrieval.")) return;
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/subjects/${subjectId}/corpus?doc_id=${encodeURIComponent(docId)}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        window.alert(`Delete failed: ${body.error ?? res.status}`);
+      }
+    } finally {
+      setBusy(false);
+      revalidator.revalidate();
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={busy}
+      className="text-xs text-dusk-500 hover:text-red-700 disabled:opacity-50"
+    >
+      {busy ? "Removing…" : "Remove"}
+    </button>
+  );
+}
+
+function CorpusUploader({ subjectId }: { subjectId: string }) {
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [mode, setMode] = useState<"file" | "paste">("paste");
+  const [title, setTitle] = useState("");
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const revalidator = useRevalidator();
+
+  async function uploadFile() {
+    setError(null);
+    const file = fileRef.current?.files?.[0];
+    if (!file) {
+      setError("Choose a file.");
+      return;
+    }
+    if (!isAllowedCorpusMime(file.type)) {
+      setError("File must be .txt, .md, or .pdf.");
+      return;
+    }
+    if (!title.trim()) {
+      setError("Give the document a title.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const urlRes = await fetch(`/api/subjects/${subjectId}/corpus`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ intent: "upload-url", content_type: file.type, title: title.trim() }),
+      });
+      if (!urlRes.ok) throw new Error((await urlRes.json().catch(() => ({}))).error ?? "Upload URL failed");
+      const { upload_url, storage_path, doc_id } = (await urlRes.json()) as {
+        upload_url: string;
+        storage_path: string;
+        doc_id: string;
+      };
+
+      const putRes = await fetch(upload_url, {
+        method: "PUT",
+        headers: { "content-type": file.type },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error(`Upload failed (${putRes.status})`);
+
+      const confirmRes = await fetch(`/api/subjects/${subjectId}/corpus`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          intent: "confirm-file",
+          doc_id,
+          storage_path,
+          content_type: file.type,
+          byte_size: file.size,
+          title: title.trim(),
+        }),
+      });
+      if (!confirmRes.ok) throw new Error((await confirmRes.json().catch(() => ({}))).error ?? "Confirm failed");
+
+      if (fileRef.current) fileRef.current.value = "";
+      setTitle("");
+      revalidator.revalidate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadPaste() {
+    setError(null);
+    if (!title.trim()) {
+      setError("Give the document a title.");
+      return;
+    }
+    if (!text.trim()) {
+      setError("Paste some text.");
+      return;
+    }
+    if (text.length > CORPUS_INLINE_MAX_CHARS) {
+      setError(`Paste must be ${CORPUS_INLINE_MAX_CHARS.toLocaleString()} chars or fewer.`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/subjects/${subjectId}/corpus`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ intent: "paste", title: title.trim(), text }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Save failed");
+      setTitle("");
+      setText("");
+      revalidator.revalidate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-dusk-700/15 bg-white p-4">
+      <div className="flex gap-3 text-sm">
+        <button
+          type="button"
+          onClick={() => setMode("paste")}
+          className={mode === "paste" ? "font-medium text-dusk-900" : "text-dusk-500 hover:text-dusk-900"}
+        >
+          Paste text
+        </button>
+        <span className="text-dusk-400">·</span>
+        <button
+          type="button"
+          onClick={() => setMode("file")}
+          className={mode === "file" ? "font-medium text-dusk-900" : "text-dusk-500 hover:text-dusk-900"}
+        >
+          Upload file
+        </button>
+      </div>
+
+      <label className="mt-4 block text-sm">
+        <span className="text-dusk-700">Title</span>
+        <input
+          type="text"
+          maxLength={200}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="e.g. Letters from 1998"
+          className="mt-1 block w-full rounded-md border border-dusk-700/30 bg-white px-3 py-2 text-sm text-dusk-900 focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500"
+        />
+      </label>
+
+      {mode === "paste" ? (
+        <label className="mt-3 block text-sm">
+          <span className="text-dusk-700">Text</span>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={8}
+            className="mt-1 block w-full rounded-md border border-dusk-700/30 bg-white px-3 py-2 text-sm text-dusk-900 focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500"
+          />
+          <span className="mt-1 block text-xs text-dusk-500">
+            Up to {CORPUS_INLINE_MAX_CHARS.toLocaleString()} characters.
+          </span>
+        </label>
+      ) : (
+        <label className="mt-3 block text-sm">
+          <span className="text-dusk-700">File (.txt, .md, .pdf)</span>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="text/plain,text/markdown,application/pdf,.txt,.md,.pdf"
+            className="mt-1 block w-full text-sm text-dusk-900"
+          />
+          <span className="mt-1 block text-xs text-dusk-500">
+            Up to 25 MB. PDF text extraction is queued for a follow-up — paste the text for now.
+          </span>
+        </label>
+      )}
+
+      {error ? (
+        <p role="alert" className="mt-3 text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={mode === "paste" ? uploadPaste : uploadFile}
+          disabled={busy}
+          className="inline-flex items-center justify-center rounded-md bg-dusk-700 px-4 py-2 text-sm font-medium text-sand-50 transition hover:bg-dusk-900 disabled:cursor-wait disabled:opacity-70"
+        >
+          {busy ? "Saving…" : "Add document"}
+        </button>
+      </div>
+    </div>
   );
 }
