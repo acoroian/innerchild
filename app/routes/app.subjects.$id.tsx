@@ -212,12 +212,6 @@ export default function SubjectDetail() {
         </dl>
       </section>
 
-      <section className="mt-12 rounded-lg border border-dusk-700/15 bg-white p-5 text-sm text-dusk-700">
-        <p className="font-serif text-base text-dusk-900">Coming next</p>
-        <p className="mt-1 text-dusk-500">
-          The letter → video reply will appear here in the next phase.
-        </p>
-      </section>
     </div>
   );
 }
