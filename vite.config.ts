@@ -3,6 +3,13 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
+  // Pin port 5173 so OAuth redirect URLs stay stable. Fail loudly if it's
+  // already bound (e.g. by another dev server) rather than silently bumping
+  // to 5174 — that breaks the Supabase callback whitelist.
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   plugins: [
     remix({
       future: {
