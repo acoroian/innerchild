@@ -2,6 +2,7 @@ import { LETTER_AUDIO_BUCKET, LETTER_VIDEO_BUCKET, type LetterReplyStatus } from
 import { getServiceRoleSupabaseClient } from "~/lib/supabase.server";
 import { chunkText } from "~/lib/corpus";
 import { getAvatarEngine } from "~/services/avatar/index.server";
+import { classifyCrisis } from "~/services/crisis/index.server";
 import { getEmbeddingEngine } from "~/services/embedding/index.server";
 import { getLLM } from "~/services/llm/index.server";
 import type { SubjectContext } from "~/services/llm/types.server";
@@ -63,7 +64,10 @@ export async function renderLetterReplyJob(
   };
 
   try {
-    // ── Stage 1: classify crisis (idempotent — recompute is cheap & deterministic)
+    // ── Stage 1: layered crisis classification with circuit breaker.
+    //   Phase 5: omni-moderation pre-pass → Haiku second pass on borderline →
+    //   keyword fallback if omni-moderation is dark. See services/crisis.
+    //   Skipped if a prior run already persisted a non-default verdict.
     await updateLetter({ reply_status: "classifying" satisfies LetterReplyStatus });
     const crisis = letter.crisis_flag !== "none" || letter.reply_script
       ? {
@@ -71,7 +75,7 @@ export async function renderLetterReplyJob(
           rationale: letter.crisis_rationale ?? undefined,
           classifierVersions: { prePass: "skipped" },
         }
-      : await llm.classifyCrisis({ text: letter.body });
+      : await classifyCrisis(letter.body);
 
     await updateLetter({
       crisis_flag: crisis.flag,
@@ -97,7 +101,11 @@ export async function renderLetterReplyJob(
         subject: subjectCtx,
         ragChunks,
         locale,
-        crisis,
+        crisis: {
+          flag: crisis.flag,
+          rationale: crisis.rationale,
+          classifierVersions: crisis.classifierVersions,
+        },
       });
       script = reply.script;
       await updateLetter({
