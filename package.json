@@ -22,6 +22,7 @@
     "db:reset": "supabase db reset"
   },
   "dependencies": {
+    "@google-cloud/tasks": "^6.2.2",
     "@remix-run/node": "^2.15.0",
     "@remix-run/react": "^2.15.0",
     "@remix-run/serve": "^2.15.0",

@@ -1,5 +1,7 @@
 import express, { type Request, type Response } from "express";
 
+import { cloneVoiceJob } from "../../app/services/jobs/clone-voice.server.js";
+
 import { requireCloudTasksAuth } from "./auth.js";
 
 const app = express();
@@ -25,10 +27,22 @@ app.post("/jobs/render-letter-reply", requireCloudTasksAuth, async (req, res) =>
 });
 
 app.post("/jobs/clone-voice", requireCloudTasksAuth, async (req, res) => {
-  // TODO(Phase 2): call VoiceEngine.cloneFromSample with consent record;
-  // write voice_id back to subjects table; idempotent on subjects.voice_id.
-  console.log("[clone_voice] received:", req.body);
-  res.status(200).json({ status: "stub", todo: "Phase 2" });
+  const payload = req.body as { voice_sample_id?: string };
+  if (!payload?.voice_sample_id) {
+    return res.status(400).json({ error: "voice_sample_id required" });
+  }
+  try {
+    const result = await cloneVoiceJob({ voice_sample_id: payload.voice_sample_id });
+    if (result.status === "error") {
+      // 500 lets Cloud Tasks retry per the queue's retry config.
+      return res.status(500).json(result);
+    }
+    return res.status(200).json(result);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.error("[clone_voice] uncaught:", reason);
+    return res.status(500).json({ status: "error", reason });
+  }
 });
 
 app.post("/jobs/enroll-avatar", requireCloudTasksAuth, async (req, res) => {
