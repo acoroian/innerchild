@@ -1,4 +1,7 @@
-import type { MetaFunction } from "@remix-run/node";
+import { json, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
+import { Link, useLoaderData } from "@remix-run/react";
+
+import { getOptionalUser } from "~/lib/auth.server";
 
 export const meta: MetaFunction = () => [
   { title: "mosaicrise — write to the people who shaped you" },
@@ -9,13 +12,31 @@ export const meta: MetaFunction = () => [
   },
 ];
 
+export async function loader({ request }: LoaderFunctionArgs) {
+  const { user, responseHeaders } = await getOptionalUser(request);
+  return json({ signedIn: !!user }, { headers: responseHeaders });
+}
+
 export default function Index() {
+  const { signedIn } = useLoaderData<typeof loader>();
+
   return (
     <main className="min-h-screen px-6 py-16 sm:px-8 sm:py-24">
       <div className="mx-auto max-w-2xl">
-        <p className="text-sm uppercase tracking-[0.18em] text-dusk-500">
-          mosaicrise
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm uppercase tracking-[0.18em] text-dusk-500">
+            mosaicrise
+          </p>
+          {signedIn ? (
+            <Link to="/app" className="text-sm text-dusk-500 hover:text-dusk-900">
+              Open app →
+            </Link>
+          ) : (
+            <Link to="/signin" className="text-sm text-dusk-500 hover:text-dusk-900">
+              Sign in
+            </Link>
+          )}
+        </div>
 
         <h1 className="mt-6 font-serif text-4xl leading-[1.15] text-dusk-900 sm:text-5xl">
           Write to the people who shaped you.
@@ -44,24 +65,23 @@ export default function Index() {
         </div>
 
         <div className="mt-12 flex flex-col gap-3 sm:flex-row">
-          <a
-            href="mailto:hello@mosaicrise.com?subject=mosaicrise%20invite%20request"
+          <Link
+            to={signedIn ? "/app" : "/signin"}
             className="inline-flex items-center justify-center rounded-md bg-dusk-700 px-6 py-3 text-sm font-medium text-sand-50 transition hover:bg-dusk-900 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:ring-offset-2 focus:ring-offset-sand-50"
           >
-            Request an invite
-          </a>
-          <a
-            href="/about"
+            {signedIn ? "Open mosaicrise" : "Get started"}
+          </Link>
+          <Link
+            to="/about"
             className="inline-flex items-center justify-center rounded-md border border-dusk-700/30 px-6 py-3 text-sm font-medium text-dusk-700 transition hover:border-dusk-700 focus:outline-none focus:ring-2 focus:ring-sage-500 focus:ring-offset-2 focus:ring-offset-sand-50"
           >
             How it works
-          </a>
+          </Link>
         </div>
 
         <footer className="mt-24 border-t border-dusk-700/15 pt-6 text-xs text-dusk-500">
           <p>
-            Phase 0 build · scaffolding only · invite-only beta opens later this
-            year
+            Early build · invite-only beta opens later this year
           </p>
         </footer>
       </div>

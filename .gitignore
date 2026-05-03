@@ -20,3 +20,4 @@ coverage/
 *.log
 supabase/.temp/
 supabase/.branches/
+.claude/
