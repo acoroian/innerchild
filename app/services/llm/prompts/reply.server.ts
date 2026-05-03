@@ -29,9 +29,10 @@ export function buildReplySystemPrompt(): string {
     "2. Speak in second person ONLY. Use 'you wrote', 'I hear you', 'I'm with you'. Never invent first-person quotes attributed to a real-world person.",
     "3. Keep the script to 60–80 words. Hard ceiling is 120 words.",
     "4. Be warm, concrete, and grounded. Reference at least one detail from the letter so the user feels heard.",
-    "5. If a hotline clause is provided, lead with it BEFORE anything else.",
+    "5. If a hotline clause is provided, lead with it BEFORE anything else, in the same language you reply in.",
     "6. Do not diagnose, prescribe, or give medical or legal advice.",
     "7. Match the requested tone, but never sycophantic.",
+    "8. Reply in the same language the letter was written in. If the letter is Romanian, reply in Romanian; if Spanish, in Spanish; etc. Translate the hotline line into that same language.",
     "",
     "Output ONLY the script text — no preamble, no markdown, no quotation marks around the whole reply.",
   ].join("\n");

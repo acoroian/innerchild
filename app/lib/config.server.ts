@@ -43,6 +43,11 @@ const ConfigSchema = z.object({
   ELEVENLABS_PRESET_VOICE_ID: z.string().optional(),
   CARTESIA_API_KEY: z.string().optional(),
   TAVUS_API_KEY: z.string().optional(),
+  // Free-tier Tavus accounts can't create Personal Replicas from a single
+  // photo (Personal Replicas need a 2-min training video). When set, the
+  // adapter returns this Stock Replica id from enrollFromPhoto. Leave unset
+  // on paid tiers once Personal Replica creation is wired up.
+  TAVUS_PRESET_REPLICA_ID: z.string().optional(),
   HEYGEN_API_KEY: z.string().optional(),
   DID_API_KEY: z.string().optional(),
 

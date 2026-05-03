@@ -20,6 +20,11 @@ const HOTLINES: Record<string, HotlineSpec> = {
     contact: "988",
     hint: "Call or text 988 (US) for 24/7 crisis support.",
   },
+  "ro-RO": {
+    name: "DepreHub",
+    contact: "0374 456 420",
+    hint: "Sună la 0374 456 420 (DepreHub, România) pentru sprijin în criză 24/7. Pentru copii: Telefonul Copilului 116 111.",
+  },
 };
 
 export function localeHotline(locale: string): HotlineSpec {
