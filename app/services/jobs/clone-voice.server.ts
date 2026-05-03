@@ -1,5 +1,7 @@
+import { config } from "~/lib/config.server";
 import { getServiceRoleSupabaseClient } from "~/lib/supabase.server";
 import { VOICE_BUCKET, type VoiceCloneStatus } from "~/lib/voice";
+import { pickPresetVoice } from "~/services/voice/preset-voices.server";
 import { getVoiceEngine } from "~/services/voice/index.server";
 
 export interface CloneVoicePayload {
@@ -77,11 +79,32 @@ export async function cloneVoiceJob(payload: CloneVoicePayload): Promise<CloneVo
       },
     });
 
+    // Free-tier signal: when ELEVENLABS_PRESET_VOICE_ID is set, the adapter
+    // returns it instead of doing a real clone. In that case, override with a
+    // per-Subject smart preset based on kind + age + gender so different
+    // Subjects get different voices instead of every one defaulting to the
+    // single global preset.
+    let voiceId = result.voiceId;
+    if (config.ELEVENLABS_PRESET_VOICE_ID && voiceId === config.ELEVENLABS_PRESET_VOICE_ID) {
+      const { data: subjForPick } = await supabase
+        .from("subjects")
+        .select("kind, age_at_subject, gender")
+        .eq("id", sample.subject_id)
+        .maybeSingle();
+      if (subjForPick) {
+        voiceId = pickPresetVoice({
+          kind: subjForPick.kind,
+          age: subjForPick.age_at_subject,
+          gender: subjForPick.gender,
+        }).voiceId;
+      }
+    }
+
     const { error: updErr } = await supabase
       .from("subject_voice_samples")
       .update({
         clone_status: "ready" satisfies VoiceCloneStatus,
-        voice_id: result.voiceId,
+        voice_id: voiceId,
         engine: process.env.VOICE_ENGINE ?? "mock",
         clone_error: null,
       })
@@ -90,11 +113,11 @@ export async function cloneVoiceJob(payload: CloneVoicePayload): Promise<CloneVo
 
     const { error: subjErr } = await supabase
       .from("subjects")
-      .update({ voice_id: result.voiceId })
+      .update({ voice_id: voiceId })
       .eq("id", sample.subject_id);
     if (subjErr) throw subjErr;
 
-    return { status: "ok", voice_id: result.voiceId };
+    return { status: "ok", voice_id: voiceId };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     await supabase

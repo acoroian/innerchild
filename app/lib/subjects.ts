@@ -3,6 +3,7 @@
 
 export type SubjectKind = "inner_child" | "ancestor" | "other";
 export type SubjectTone = "playful" | "wise" | "gentle" | "formal" | "mixed";
+export type SubjectGender = "male" | "female" | "nonbinary" | "unspecified";
 
 // Curated BCP-47 set. Sorted so the dropdown reads naturally. Add by editing
 // here — the column itself is unconstrained so nothing breaks if you ship a
@@ -55,6 +56,7 @@ export interface Subject {
   display_name: string;
   age_at_subject: number | null;
   relationship: string | null;
+  gender: SubjectGender | null;
   tone: SubjectTone | null;
   key_memories: string[];
   things_to_avoid: string | null;
@@ -77,6 +79,18 @@ export interface SubjectPhoto {
 
 export const SUBJECT_KINDS: SubjectKind[] = ["inner_child", "ancestor", "other"];
 export const SUBJECT_TONES: SubjectTone[] = ["playful", "wise", "gentle", "formal", "mixed"];
+export const SUBJECT_GENDERS: SubjectGender[] = ["female", "male", "nonbinary", "unspecified"];
+
+export const GENDER_LABELS: Record<SubjectGender, string> = {
+  female: "Female",
+  male: "Male",
+  nonbinary: "Non-binary",
+  unspecified: "Prefer not to say",
+};
+
+export function isSupportedSubjectGender(g: string): g is SubjectGender {
+  return (SUBJECT_GENDERS as readonly string[]).includes(g);
+}
 
 const ALLOWED_PHOTO_MIME = ["image/jpeg", "image/png", "image/heic", "image/webp"] as const;
 export type AllowedPhotoMime = (typeof ALLOWED_PHOTO_MIME)[number];
@@ -110,6 +124,7 @@ export interface CreateSubjectInput {
   display_name: string;
   age_at_subject?: number | null;
   relationship?: string | null;
+  gender?: SubjectGender | null;
   tone?: SubjectTone | null;
   key_memories?: string[];
   things_to_avoid?: string | null;

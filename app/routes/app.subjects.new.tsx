@@ -3,12 +3,16 @@ import { Form, Link, useActionData, useLoaderData, useNavigation } from "@remix-
 
 import { requireUser } from "~/lib/auth.server";
 import {
+  GENDER_LABELS,
+  SUBJECT_GENDERS,
   SUBJECT_KINDS,
   SUBJECT_LANGUAGES,
   SUBJECT_TONES,
   type CreateSubjectInput,
+  type SubjectGender,
   type SubjectKind,
   type SubjectTone,
+  isSupportedSubjectGender,
   isSupportedSubjectLanguage,
 } from "~/lib/subjects";
 import { createSubject } from "~/lib/subjects.server";
@@ -44,6 +48,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const things_to_avoid = String(form.get("things_to_avoid") ?? "").trim();
   const memoriesRaw = String(form.get("key_memories") ?? "").trim();
   const language = String(form.get("language") ?? "").trim();
+  const gender = String(form.get("gender") ?? "").trim();
 
   const values: Record<string, string> = {
     kind,
@@ -54,6 +59,7 @@ export async function action({ request }: ActionFunctionArgs) {
     things_to_avoid,
     key_memories: memoriesRaw,
     language,
+    gender,
   };
 
   if (!SUBJECT_KINDS.includes(kind as SubjectKind)) {
@@ -97,11 +103,15 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
+  const genderVal: SubjectGender | null =
+    gender && isSupportedSubjectGender(gender) ? gender : null;
+
   const input: CreateSubjectInput = {
     kind: kind as SubjectKind,
     display_name,
     age_at_subject: age,
     relationship: relationship || null,
+    gender: genderVal,
     tone: toneVal,
     key_memories,
     things_to_avoid: things_to_avoid || null,
@@ -171,6 +181,24 @@ export default function NewSubject() {
             defaultValue={v.age_at_subject ?? ""}
             className="mt-1 block w-32 rounded-md border border-dusk-700/30 bg-white px-3 py-2 text-base text-dusk-900 focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500"
           />
+        </Field>
+
+        <Field
+          label="Gender (optional)"
+          hint="Used with age to pick a fallback voice when no recording is uploaded."
+        >
+          <select
+            name="gender"
+            defaultValue={v.gender ?? ""}
+            className="mt-1 block w-full rounded-md border border-dusk-700/30 bg-white px-3 py-2 text-base text-dusk-900 focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500"
+          >
+            <option value="">— unspecified —</option>
+            {SUBJECT_GENDERS.map((g) => (
+              <option key={g} value={g}>
+                {GENDER_LABELS[g]}
+              </option>
+            ))}
+          </select>
         </Field>
 
         <Field label="Relationship (optional)" hint="e.g. 'My grandmother on my father's side'.">

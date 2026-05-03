@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { requireUser } from "~/lib/auth.server";
 import {
+  GENDER_LABELS,
   isAllowedPhotoMime,
   languageLabel,
   PHOTO_BUCKET,
@@ -204,8 +205,9 @@ export default function SubjectDetail() {
         <h2 className="font-serif text-xl text-dusk-900">About</h2>
         <dl className="mt-4 grid grid-cols-1 gap-3 text-sm">
           <Field label="Language" value={languageLabel(subject.language)} />
-          <Field label="Tone" value={subject.tone ?? "—"} />
+          <Field label="Gender" value={subject.gender ? GENDER_LABELS[subject.gender] : "—"} />
           <Field label="Age" value={subject.age_at_subject != null ? String(subject.age_at_subject) : "—"} />
+          <Field label="Tone" value={subject.tone ?? "—"} />
           <Field
             label="Key memories"
             value={subject.key_memories.length === 0 ? "—" : subject.key_memories.join(" · ")}
