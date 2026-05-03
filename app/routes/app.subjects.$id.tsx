@@ -32,6 +32,7 @@ import {
   type CorpusIngestStatus,
   type SubjectCorpusDoc,
 } from "~/lib/corpus";
+import type { Letter } from "~/lib/letters";
 
 export const meta: MetaFunction = () => [{ title: "Subject — mosaicrise" }];
 
@@ -47,7 +48,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const subject = await getSubject(supabase, id);
   if (!subject) throw redirect("/app", { headers: responseHeaders });
 
-  const [photos, voiceSample, corpusDocsResp] = await Promise.all([
+  const [photos, voiceSample, corpusDocsResp, lettersResp] = await Promise.all([
     listSubjectPhotos(supabase, id),
     getLatestVoiceSample(supabase, id),
     supabase
@@ -55,8 +56,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       .select("*")
       .eq("subject_id", id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("letters")
+      .select("id, body, reply_status, created_at, ready_at")
+      .eq("subject_id", id)
+      .order("created_at", { ascending: false })
+      .limit(8),
   ]);
   const corpusDocs = (corpusDocsResp.data ?? []) as SubjectCorpusDoc[];
+  const letters = (lettersResp.data ?? []) as Pick<Letter, "id" | "body" | "reply_status" | "created_at" | "ready_at">[];
   const photoViews: PhotoView[] = await Promise.all(
     photos.map(async (p) => {
       const { data } = await supabase.storage
@@ -67,7 +75,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   );
 
   return json(
-    { subject, photos: photoViews, voiceSample, corpusDocs },
+    { subject, photos: photoViews, voiceSample, corpusDocs, letters },
     { headers: responseHeaders },
   );
 }
@@ -92,7 +100,8 @@ const KIND_LABEL = {
 } as const;
 
 export default function SubjectDetail() {
-  const { subject, photos, voiceSample, corpusDocs } = useLoaderData<typeof loader>();
+  const { subject, photos, voiceSample, corpusDocs, letters } = useLoaderData<typeof loader>();
+  const canWrite = !!subject.voice_id && photos.some((p) => p.is_primary);
 
   return (
     <div>
@@ -125,6 +134,45 @@ export default function SubjectDetail() {
           </button>
         </Form>
       </header>
+
+      {canWrite ? (
+        <div className="mt-8 rounded-lg border border-sage-500/30 bg-sage-400/10 p-5">
+          <p className="font-serif text-lg text-dusk-900">Ready to write.</p>
+          <p className="mt-1 text-sm text-dusk-700">
+            {subject.display_name} can write back as a short video reply.
+          </p>
+          <Link
+            to={`/app/subjects/${subject.id}/write`}
+            className="mt-3 inline-flex items-center justify-center rounded-md bg-dusk-700 px-5 py-2 text-sm font-medium text-sand-50 transition hover:bg-dusk-900"
+          >
+            Write a letter
+          </Link>
+        </div>
+      ) : null}
+
+      {letters.length > 0 ? (
+        <section className="mt-10">
+          <h2 className="font-serif text-xl text-dusk-900">Letters</h2>
+          <ul className="mt-3 divide-y divide-dusk-700/10 rounded-md border border-dusk-700/15 bg-white">
+            {letters.map((l) => (
+              <li key={l.id}>
+                <Link
+                  to={`/app/letters/${l.id}`}
+                  className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-sand-50"
+                >
+                  <span className="line-clamp-1 text-sm text-dusk-900">
+                    {l.body.slice(0, 90)}
+                    {l.body.length > 90 ? "…" : ""}
+                  </span>
+                  <span className="shrink-0 text-xs text-dusk-500">
+                    {l.reply_status === "ready" ? "Reply ready" : l.reply_status === "failed" ? "Failed" : "In progress…"}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="mt-10">
         <h2 className="font-serif text-xl text-dusk-900">Photos</h2>

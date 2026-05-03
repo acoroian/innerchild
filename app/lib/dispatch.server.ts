@@ -91,14 +91,18 @@ let _handlersWired = false;
 export async function ensureInProcessHandlersWired(): Promise<void> {
   if (_handlersWired) return;
   _handlersWired = true;
-  const [{ cloneVoiceJob }, { embedCorpusJob }] = await Promise.all([
+  const [{ cloneVoiceJob }, { embedCorpusJob }, { renderLetterReplyJob }] = await Promise.all([
     import("~/services/jobs/clone-voice.server"),
     import("~/services/jobs/embed-corpus.server"),
+    import("~/services/jobs/render-letter-reply.server"),
   ]);
   registerJobHandler("clone-voice", (payload) =>
     cloneVoiceJob(payload as { voice_sample_id: string }),
   );
   registerJobHandler("embed-subject-corpus", (payload) =>
     embedCorpusJob(payload as { doc_id: string }),
+  );
+  registerJobHandler("render-letter-reply", (payload) =>
+    renderLetterReplyJob(payload as { letter_id: string }),
   );
 }

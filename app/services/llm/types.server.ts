@@ -20,7 +20,7 @@
 export interface SubjectContext {
   subjectId: string;
   displayName: string;
-  kind: "inner_child" | "ancestor";
+  kind: "inner_child" | "ancestor" | "other";
   ageInPhoto: number | null;
   relationship: string | null;
   about: {

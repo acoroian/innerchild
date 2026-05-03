@@ -2,6 +2,7 @@ import express, { type Request, type Response } from "express";
 
 import { cloneVoiceJob } from "../../app/services/jobs/clone-voice.server.js";
 import { embedCorpusJob } from "../../app/services/jobs/embed-corpus.server.js";
+import { renderLetterReplyJob } from "../../app/services/jobs/render-letter-reply.server.js";
 
 import { requireCloudTasksAuth } from "./auth.js";
 
@@ -18,13 +19,19 @@ app.get("/", (_req: Request, res: Response) => {
 // observability + retry semantics.
 
 app.post("/jobs/render-letter-reply", requireCloudTasksAuth, async (req, res) => {
-  // TODO(Phase 4): load letter, run crisis classifier in parallel with RAG
-  // retrieval, generate reply via LLM adapter, synthesize voice, render
-  // avatar (async start/poll/handleWebhook), persist intermediate state for
-  // mid-job idempotency, push notify on ready.
-  // Stub: accept the job and return 200 so wiring tests pass.
-  console.log("[render_letter_reply] received:", req.body);
-  res.status(200).json({ status: "stub", todo: "Phase 4" });
+  const payload = req.body as { letter_id?: string };
+  if (!payload?.letter_id) {
+    return res.status(400).json({ error: "letter_id required" });
+  }
+  try {
+    const result = await renderLetterReplyJob({ letter_id: payload.letter_id });
+    if (result.status === "error") return res.status(500).json(result);
+    return res.status(200).json(result);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.error("[render_letter_reply] uncaught:", reason);
+    return res.status(500).json({ status: "error", reason });
+  }
 });
 
 app.post("/jobs/clone-voice", requireCloudTasksAuth, async (req, res) => {
