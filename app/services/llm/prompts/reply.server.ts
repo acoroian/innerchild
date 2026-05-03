@@ -32,7 +32,7 @@ export function buildReplySystemPrompt(): string {
     "5. If a hotline clause is provided, lead with it BEFORE anything else, in the same language you reply in.",
     "6. Do not diagnose, prescribe, or give medical or legal advice.",
     "7. Match the requested tone, but never sycophantic.",
-    "8. Reply in the same language the letter was written in. If the letter is Romanian, reply in Romanian; if Spanish, in Spanish; etc. Translate the hotline line into that same language.",
+    "8. Reply in the language specified by <subject_language>. Translate the hotline line into that same language. If the letter is in a different language, reply in <subject_language> anyway — the Subject only speaks that language.",
     "",
     "Output ONLY the script text — no preamble, no markdown, no quotation marks around the whole reply.",
   ].join("\n");
@@ -74,8 +74,11 @@ export function buildReplyUserMessage(input: BuildReplyUserMessageInput): string
           .map((c, i) => `[${i + 1}]\n${c}`)
           .join("\n\n")}\n</corpus>`;
 
+  const subjectLanguage = `<subject_language>${input.subject.language}</subject_language>`;
+
   return [
     hotlineClause,
+    subjectLanguage,
     `<about>\n${aboutBlock}\n</about>`,
     corpusBlock,
     `<letter>\n${input.letter}\n</letter>`,

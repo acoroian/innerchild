@@ -23,6 +23,8 @@ export interface SubjectContext {
   kind: "inner_child" | "ancestor" | "other";
   ageInPhoto: number | null;
   relationship: string | null;
+  /** BCP-47 tag the Subject speaks. Drives reply language. */
+  language: string;
   about: {
     keyMemories: string[];
     tone: "playful" | "wise" | "gentle" | "formal" | "mixed";

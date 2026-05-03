@@ -1,13 +1,15 @@
-import { json, redirect, type ActionFunctionArgs, type MetaFunction } from "@remix-run/node";
-import { Form, Link, useActionData, useNavigation } from "@remix-run/react";
+import { json, redirect, type ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
+import { Form, Link, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
 
 import { requireUser } from "~/lib/auth.server";
 import {
   SUBJECT_KINDS,
+  SUBJECT_LANGUAGES,
   SUBJECT_TONES,
   type CreateSubjectInput,
   type SubjectKind,
   type SubjectTone,
+  isSupportedSubjectLanguage,
 } from "~/lib/subjects";
 import { createSubject } from "~/lib/subjects.server";
 
@@ -16,6 +18,19 @@ export const meta: MetaFunction = () => [{ title: "New subject — mosaicrise" }
 interface ActionError {
   error: string;
   values?: Record<string, string>;
+}
+
+// Pre-fill the language dropdown from the user's profile locale so a Romanian
+// user gets ro-RO selected by default, etc. They can still pick anything.
+export async function loader({ request }: LoaderFunctionArgs) {
+  const { user, supabase, responseHeaders } = await requireUser(request);
+  const { data } = await supabase
+    .from("user_profiles")
+    .select("locale")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const defaultLanguage = data?.locale ?? "en-US";
+  return json({ defaultLanguage }, { headers: responseHeaders });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -28,6 +43,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const ageRaw = String(form.get("age_at_subject") ?? "").trim();
   const things_to_avoid = String(form.get("things_to_avoid") ?? "").trim();
   const memoriesRaw = String(form.get("key_memories") ?? "").trim();
+  const language = String(form.get("language") ?? "").trim();
 
   const values: Record<string, string> = {
     kind,
@@ -37,6 +53,7 @@ export async function action({ request }: ActionFunctionArgs) {
     age_at_subject: ageRaw,
     things_to_avoid,
     key_memories: memoriesRaw,
+    language,
   };
 
   if (!SUBJECT_KINDS.includes(kind as SubjectKind)) {
@@ -73,6 +90,13 @@ export async function action({ request }: ActionFunctionArgs) {
         .filter((m) => m.length > 0)
     : [];
 
+  if (language && !isSupportedSubjectLanguage(language)) {
+    return json<ActionError>(
+      { error: "Pick a language from the list.", values },
+      { status: 400, headers: responseHeaders },
+    );
+  }
+
   const input: CreateSubjectInput = {
     kind: kind as SubjectKind,
     display_name,
@@ -81,6 +105,7 @@ export async function action({ request }: ActionFunctionArgs) {
     tone: toneVal,
     key_memories,
     things_to_avoid: things_to_avoid || null,
+    ...(language ? { language } : {}),
   };
 
   const subject = await createSubject(supabase, user.id, input);
@@ -88,6 +113,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function NewSubject() {
+  const { defaultLanguage } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const nav = useNavigation();
   const v = actionData?.values ?? {};
@@ -155,6 +181,23 @@ export default function NewSubject() {
             defaultValue={v.relationship ?? ""}
             className="mt-1 block w-full rounded-md border border-dusk-700/30 bg-white px-3 py-2 text-base text-dusk-900 focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500"
           />
+        </Field>
+
+        <Field
+          label="Language"
+          hint="What language they speak. Replies are generated in this language."
+        >
+          <select
+            name="language"
+            defaultValue={v.language ?? defaultLanguage}
+            className="mt-1 block w-full rounded-md border border-dusk-700/30 bg-white px-3 py-2 text-base text-dusk-900 focus:border-sage-500 focus:outline-none focus:ring-1 focus:ring-sage-500"
+          >
+            {SUBJECT_LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </select>
         </Field>
 
         <Field label="Tone of replies (optional)" hint="How replies should sound.">

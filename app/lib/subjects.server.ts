@@ -57,6 +57,7 @@ export async function createSubject(
       tone: input.tone ?? null,
       key_memories: input.key_memories ?? [],
       things_to_avoid: input.things_to_avoid ?? null,
+      ...(input.language ? { language: input.language } : {}),
     })
     .select("*")
     .single();
@@ -79,6 +80,7 @@ export async function updateSubject(
       ...(patch.tone !== undefined ? { tone: patch.tone } : {}),
       ...(patch.key_memories !== undefined ? { key_memories: patch.key_memories } : {}),
       ...(patch.things_to_avoid !== undefined ? { things_to_avoid: patch.things_to_avoid } : {}),
+      ...(patch.language !== undefined ? { language: patch.language } : {}),
     })
     .eq("id", subjectId)
     .select("*")

@@ -9,6 +9,7 @@ const subject: SubjectContext = {
   kind: "inner_child",
   ageInPhoto: 7,
   relationship: null,
+  language: "en-US",
   about: { keyMemories: [], tone: "gentle", thingsToAvoid: "" },
 };
 

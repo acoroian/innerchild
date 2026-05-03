@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { requireUser } from "~/lib/auth.server";
 import {
   isAllowedPhotoMime,
+  languageLabel,
   PHOTO_BUCKET,
   PHOTO_MAX_BYTES,
   SIGNED_URL_TTL_SECONDS,
@@ -202,6 +203,7 @@ export default function SubjectDetail() {
       <section className="mt-12">
         <h2 className="font-serif text-xl text-dusk-900">About</h2>
         <dl className="mt-4 grid grid-cols-1 gap-3 text-sm">
+          <Field label="Language" value={languageLabel(subject.language)} />
           <Field label="Tone" value={subject.tone ?? "—"} />
           <Field label="Age" value={subject.age_at_subject != null ? String(subject.age_at_subject) : "—"} />
           <Field

@@ -239,6 +239,7 @@ function toSubjectContext(subject: {
   tone: SubjectContext["about"]["tone"] | null;
   key_memories: string[];
   things_to_avoid: string | null;
+  language: string | null;
 }): SubjectContext {
   return {
     subjectId: subject.id,
@@ -246,6 +247,7 @@ function toSubjectContext(subject: {
     kind: subject.kind,
     ageInPhoto: subject.age_at_subject,
     relationship: subject.relationship,
+    language: subject.language ?? "en-US",
     about: {
       keyMemories: subject.key_memories ?? [],
       tone: subject.tone ?? "gentle",
